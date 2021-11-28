@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Net;
-using System.Text;
 using System.Threading.Tasks;
 using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
@@ -209,7 +208,7 @@ namespace NzbDrone.Core.Indexers.Cardigann
 
                 Cookies = response.GetCookies();
 
-                CheckForError(response, login.Error);
+                CheckForError(response, login.Error, "html");
 
                 CookiesUpdater(Cookies, DateTime.Now + TimeSpan.FromDays(30));
             }
@@ -449,7 +448,7 @@ namespace NzbDrone.Core.Indexers.Cardigann
                 }
 
                 Cookies = loginResult.GetCookies();
-                CheckForError(loginResult, login.Error);
+                CheckForError(loginResult, login.Error, "html");
                 CookiesUpdater(Cookies, DateTime.Now + TimeSpan.FromDays(30));
             }
             else if (login.Method == "cookie")
@@ -485,7 +484,7 @@ namespace NzbDrone.Core.Indexers.Cardigann
 
                 Cookies = response.GetCookies();
 
-                CheckForError(response, login.Error);
+                CheckForError(response, login.Error, "html");
 
                 CookiesUpdater(Cookies, DateTime.Now + TimeSpan.FromDays(30));
             }
@@ -510,7 +509,7 @@ namespace NzbDrone.Core.Indexers.Cardigann
 
                 Cookies = response.GetCookies();
 
-                CheckForError(response, login.Error);
+                CheckForError(response, login.Error, "html");
 
                 CookiesUpdater(Cookies, DateTime.Now + TimeSpan.FromDays(30));
             }
@@ -518,38 +517,6 @@ namespace NzbDrone.Core.Indexers.Cardigann
             {
                 throw new NotImplementedException("Login method " + login.Method + " not implemented");
             }
-        }
-
-        protected bool CheckForError(HttpResponse loginResult, IList<ErrorBlock> errorBlocks)
-        {
-            if (loginResult.StatusCode == HttpStatusCode.Unauthorized)
-            {
-                throw new HttpException(loginResult);
-            }
-
-            if (errorBlocks == null)
-            {
-                return true;
-            }
-
-            var resultParser = new HtmlParser();
-            var resultDocument = resultParser.ParseDocument(loginResult.Content);
-            foreach (var error in errorBlocks)
-            {
-                var selection = resultDocument.QuerySelector(error.Selector);
-                if (selection != null)
-                {
-                    var errorMessage = selection.TextContent;
-                    if (error.Message != null)
-                    {
-                        errorMessage = HandleSelector(error.Message, resultDocument.FirstElementChild);
-                    }
-
-                    throw new CardigannConfigException(_definition, string.Format("Error: {0}", errorMessage.Trim()));
-                }
-            }
-
-            return true;
         }
 
         public async Task<Captcha> GetConfigurationForSetup(bool automaticlogin)
@@ -1066,7 +1033,21 @@ namespace NzbDrone.Core.Indexers.Cardigann
                             }
                             else
                             {
-                                queryCollection.Add(input.Key, ApplyGoTemplateText(input.Value, variables));
+                                var inputText = ApplyGoTemplateText(input.Value, variables);
+
+                                // Newznab cannot have empty queries
+                                // ToDo this should be its own property so it can be applied to other types
+                                if (_definition.Protocol == "usenet")
+                                {
+                                    if (!string.IsNullOrWhiteSpace(inputText))
+                                    {
+                                        queryCollection.Add(input.Key, inputText);
+                                    }
+                                }
+                                else
+                                {
+                                    queryCollection.Add(input.Key, inputText);
+                                }
                             }
                         }
                     }

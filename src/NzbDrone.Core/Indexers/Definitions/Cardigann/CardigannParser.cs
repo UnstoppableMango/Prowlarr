@@ -55,8 +55,10 @@ namespace NzbDrone.Core.Indexers.Cardigann
             var request = indexerResponse.Request as CardigannRequest;
             var variables = request.Variables;
             var search = _definition.Search;
-
+            var protocol = _definition.Protocol;
             var searchUrlUri = new Uri(request.Url.FullUri);
+
+            CheckForError(indexerResponse.HttpResponse, search.Error, request.SearchPath.Response.Type);
 
             if (request.SearchPath.Response != null && request.SearchPath.Response.Type.Equals("json"))
             {
@@ -96,7 +98,7 @@ namespace NzbDrone.Core.Indexers.Cardigann
 
                     foreach (var mulRow in mulRows)
                     {
-                        var release = new TorrentInfo();
+                        var release = protocol == "usenet" ? new ReleaseInfo() : new TorrentInfo();
 
                         foreach (var field in search.Fields)
                         {
@@ -228,7 +230,7 @@ namespace NzbDrone.Core.Indexers.Cardigann
                     {
                         try
                         {
-                            var release = new TorrentInfo();
+                            var release = protocol == "usenet" ? new ReleaseInfo() : new TorrentInfo();
 
                             // Parse fields
                             foreach (var field in search.Fields)
@@ -358,27 +360,30 @@ namespace NzbDrone.Core.Indexers.Cardigann
                 releases = releases.Take(query.Limit).ToList();
             }*/
 
-            releases.ForEach(c =>
+            if (protocol == "torrent")
             {
+                releases.ForEach(c =>
+                {
                 // generate magnet link from info hash (not allowed for private sites)
                 if (((TorrentInfo)c).MagnetUrl == null && !string.IsNullOrWhiteSpace(((TorrentInfo)c).InfoHash) && _definition.Type != "private")
-                {
-                    ((TorrentInfo)c).MagnetUrl = MagnetLinkBuilder.BuildPublicMagnetLink(((TorrentInfo)c).InfoHash, c.Title);
-                }
+                    {
+                        ((TorrentInfo)c).MagnetUrl = MagnetLinkBuilder.BuildPublicMagnetLink(((TorrentInfo)c).InfoHash, c.Title);
+                    }
 
                 // generate info hash from magnet link
                 if (((TorrentInfo)c).MagnetUrl != null && string.IsNullOrWhiteSpace(((TorrentInfo)c).InfoHash))
-                {
-                    ((TorrentInfo)c).InfoHash = MagnetLinkBuilder.GetInfoHashFromMagnet(((TorrentInfo)c).MagnetUrl);
-                }
-            });
+                    {
+                        ((TorrentInfo)c).InfoHash = MagnetLinkBuilder.GetInfoHashFromMagnet(((TorrentInfo)c).MagnetUrl);
+                    }
+                });
+            }
 
             _logger.Debug($"Got {releases.Count} releases");
 
             return releases;
         }
 
-        private string ParseFields(string value, string fieldName, TorrentInfo release, List<string> fieldModifiers, Uri searchUrlUri)
+        private string ParseFields(string value, string fieldName, dynamic release, List<string> fieldModifiers, Uri searchUrlUri)
         {
             switch (fieldName)
             {
@@ -460,7 +465,7 @@ namespace NzbDrone.Core.Indexers.Cardigann
                         }
                         else
                         {
-                            release.Categories = release.Categories.Union(cats).ToList();
+                            release.Categories = ((ReleaseInfo)release).Categories.Union(cats).ToList();
                         }
                     }
 

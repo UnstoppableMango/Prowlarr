@@ -28,7 +28,8 @@ namespace NzbDrone.Core.Test.IndexerTests.NewznabTests
                 Settings = new NewznabSettings()
                 {
                     BaseUrl = "http://indexer.local/"
-                }
+                },
+                Protocol = DownloadProtocol.Usenet
             };
 
             _caps = new IndexerCapabilities();

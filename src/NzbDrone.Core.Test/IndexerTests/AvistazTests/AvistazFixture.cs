@@ -24,7 +24,8 @@ namespace NzbDrone.Core.Test.IndexerTests.AvistazTests
             Subject.Definition = new IndexerDefinition()
             {
                 Name = "AvistaZ",
-                Settings = new AvistazSettings() { Username = "someuser", Password = "somepass", Pid = "somepid" }
+                Settings = new AvistazSettings() { Username = "someuser", Password = "somepass", Pid = "somepid" },
+                Protocol = DownloadProtocol.Torrent
             };
         }
 
